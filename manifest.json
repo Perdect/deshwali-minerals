@@ -1,0 +1,29 @@
+{
+  "name": "Deshwali Minerals Business Suite",
+  "short_name": "DM Suite",
+  "description": "GST Sales, Purchase, Labour & Cash Book management for Deshwali Minerals & Gotan Lime Industries",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#6d28d9",
+  "theme_color": "#6d28d9",
+  "orientation": "portrait-primary",
+  "lang": "en-IN",
+  "categories": ["business", "finance", "productivity"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}

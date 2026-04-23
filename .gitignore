@@ -1,0 +1,8 @@
+.vercel
+.claude/
+CLAUDE.md
+*.zip
+*.pdf
+Deshwali Minerals — Business Suite_files/
+node_modules/
+.DS_Store
