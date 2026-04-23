@@ -4324,7 +4324,9 @@ function confirmPdfImport(){
 function impSaveRow(row){
   const s=IMP.section;
   if(s==='sales'){
-    SALES.push({inv:row.inv||'',date:fmtImpDate(row.date),party:(row.party||'').toUpperCase(),gstin:(row.gstin||'').toUpperCase(),qty:parseFloat(row.qty)||0,rate:parseFloat(row.rate)||0,gstR:parseInt(row.gstR)||5,eway:row.eway||'',veh:row.veh||''});
+    const _sEntry={inv:row.inv||'',date:fmtImpDate(row.date),party:(row.party||'').toUpperCase(),gstin:(row.gstin||'').toUpperCase(),qty:parseFloat(row.qty)||0,rate:parseFloat(row.rate)||0,gstR:parseInt(row.gstR)||5,eway:row.eway||'',veh:row.veh||''};
+    const _sDupIdx=_sEntry.inv?SALES.findIndex(s=>s.inv===_sEntry.inv):-1;
+    if(_sDupIdx>=0){SALES[_sDupIdx]=_sEntry;IMP._wasUpdate=true;}else{SALES.push(_sEntry);IMP._wasUpdate=false;}
     autoSaveParty(row.party,row.gstin,'','','','customer');
   }else if(s==='purchase'){
     const _cat=row.cat||'Other';
