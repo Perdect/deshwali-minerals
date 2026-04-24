@@ -2645,7 +2645,7 @@ function renderSales(){
   const stLabels={paid:'Paid',pending:'Pending',cash:'Cash'};
   const stDot={paid:'#16a34a',pending:'#ea580c',cash:'#5655D7'};
   let tQ=0,tT=0,tG=0,tTot=0;
-  const _salPdfs=_pdfStore();
+  const _salPdfs=_pdfUrlStore();
   const _allSalesIdx=filt?SALES.reduce((a,s,i)=>{if((s.date||'').startsWith(filt))a.push(i);return a;},[]):SALES.map((_,i)=>i);
   const salesIdx=SALE_STATUS_FILTER==='all'?_allSalesIdx:_allSalesIdx.filter(i=>(SALES[i].status||'pending')===SALE_STATUS_FILTER);
   // Sort by date desc, group by month
@@ -2722,7 +2722,7 @@ function renderPurchase(){
   const tp=src.reduce((a,p)=>{a.tx+=p.taxable;return a;},{tx:0});
   document.getElementById('pur-kpi').innerHTML=`<div class="kpi"><div class="kpi-ic">📋</div><div class="kpi-label">${t('kpi_bills')}</div><div class="kpi-val" style="color:var(--p2)">${src.length}</div><div class="kpi-footer"><span>${filt?_monLabel(filt):t('lbl_all_time')}</span><span class="kpi-badge kb-p">${t('mg_bills')}</span></div></div><div class="kpi"><div class="kpi-ic">💵</div><div class="kpi-label">${t('kpi_total_pur')}</div><div class="kpi-val">${fC(tp.tx)}</div><div class="kpi-footer"><span>${t('lbl_excl_gst')}</span><span class="kpi-badge kb-a">${src.length} ${t('mg_bills')}</span></div></div><div class="kpi"><div class="kpi-ic">✅</div><div class="kpi-label">${t('kpi_itc_elig')}</div><div class="kpi-val" style="color:var(--green)">${fC(elig)}</div><div class="kpi-footer"><span>${t('lbl_claimable')}</span><span class="kpi-badge kb-g">↑ GSTR-3B</span></div></div><div class="kpi"><div class="kpi-ic">🔄</div><div class="kpi-label">Royalty</div><div class="kpi-val" style="color:var(--p2)">${fC(rcm)}</div><div class="kpi-footer"><span>${t('lbl_pay_first')}</span><span class="kpi-badge kb-p">RCM</span></div></div>`;
   const bm={Eligible:'bg',Blocked:'br',RCM:'bb',Exempt:'bgr'};let tT=0,tG=0,tI=0;
-  const _purPdfs=_pdfStore();
+  const _purPdfs=_pdfUrlStore();
   const purStColors={paid:'#16a34a',pending:'#ea580c',cash:'#5655D7'};
   const purStBg={paid:'#f0fdf4',pending:'#fff7ed',cash:'#f5f5ff'};
   const purStLabels={paid:'Paid',pending:'Pending',cash:'Cash'};
@@ -3718,66 +3718,56 @@ function confirmExcelImport(){
 function openImpPicker(){document.getElementById('impPickerModal').classList.add('open');}
 function closeImpPicker(){document.getElementById('impPickerModal').classList.remove('open');}
 
-// ── PDF per-row storage ──
-const PDF_KEY='dm_pdfs_v1';
-function _pdfStore(){try{return JSON.parse(localStorage.getItem(PDF_KEY)||'{}');}catch{return {};}}
-function _savePdfToStore(key,file){
-  const reader=new FileReader();
-  reader.onload=e=>{
-    const store=_pdfStore();
-    store[key]=e.target.result;
-    // Keep max 30 PDFs (drop oldest if full)
-    const keys=Object.keys(store);
-    if(keys.length>30)delete store[keys[0]];
-    try{localStorage.setItem(PDF_KEY,JSON.stringify(store));}
-    catch{const k2=Object.keys(store);k2.slice(0,5).forEach(k=>delete store[k]);try{localStorage.setItem(PDF_KEY,JSON.stringify(store));}catch{}}
-    // Re-render so icon turns teal immediately
-    if(key.startsWith('sal_'))renderSales();
-    else if(key.startsWith('pur_'))renderPurchase();
-  };
-  reader.readAsDataURL(file);
+// ── PDF storage — Supabase Storage (bills bucket) ──
+const PDF_URL_KEY='dm_pdf_urls_v2'; // lightweight URL cache only
+const PDF_BUCKET='bills';
+function _pdfUrlStore(){try{return JSON.parse(localStorage.getItem(PDF_URL_KEY)||'{}');}catch{return {};}}
+// Convert data URL → Blob (for pdf-lib page extracts)
+function _dataUrlToBlob(dataUrl){
+  const[meta,b64]=dataUrl.split(',');
+  const mime=meta.match(/:(.*?);/)[1];
+  const bytes=atob(b64);const arr=new Uint8Array(bytes.length);
+  for(let i=0;i<bytes.length;i++)arr[i]=bytes.charCodeAt(i);
+  return new Blob([arr],{type:mime});
 }
-function uploadRowPdf(key,section){
-  const inp=document.createElement('input');
-  inp.type='file';
-  inp.accept='application/pdf,image/jpeg,image/png,image/webp';
-  inp.onchange=e=>{
-    const f=e.target.files[0];if(!f)return;
-    _savePdfToStore(key,f);
-    showToast('Bill uploaded ✓','success');
-    if(section==='sales'||key.startsWith('sal_'))renderSales();
-    else if(section==='purchase'||key.startsWith('pur_'))renderPurchase();
-  };
-  inp.click();
+async function _savePdfToStorage(key,fileOrBlob){
+  const type=fileOrBlob.type||'application/pdf';
+  const ext=type.includes('pdf')?'pdf':type.includes('png')?'png':'jpg';
+  const path=`${ACTIVE_CO||'dm'}/${key}.${ext}`;
+  if(DB){
+    try{
+      const{error}=await DB.storage.from(PDF_BUCKET).upload(path,fileOrBlob,{contentType:type,upsert:true});
+      if(!error){
+        const{data}=DB.storage.from(PDF_BUCKET).getPublicUrl(path);
+        const url=data.publicUrl;
+        const store=_pdfUrlStore();store[key]=url;
+        localStorage.setItem(PDF_URL_KEY,JSON.stringify(store));
+        return url;
+      }else{console.warn('[PDF upload]',error.message);}
+    }catch(e){console.warn('[PDF upload exception]',e);}
+  }
+  // Fallback: store as data URL in localStorage if Supabase unavailable
+  return new Promise(resolve=>{
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      const store=_pdfUrlStore();store[key]=ev.target.result;
+      localStorage.setItem(PDF_URL_KEY,JSON.stringify(store));
+      resolve(ev.target.result);
+    };
+    reader.readAsDataURL(fileOrBlob);
+  });
 }
-function downloadRowPdf(key,invName){
-  const data=_pdfStore()[key];
-  if(!data){showToast('No PDF attached to this row','error');return;}
-  const isImg=/^data:image\//i.test(data);
-  const ext=isImg?(/jpeg|jpg/i.test(data)?'jpg':'png'):'pdf';
+async function downloadRowPdf(key,invName){
+  const url=_pdfUrlStore()[key];
+  if(!url){showToast('No PDF attached to this row','error');return;}
   const a=document.createElement('a');
-  a.href=data;
-  a.download=(invName||key)+'.'+ext;
+  a.href=url;a.target='_blank';
+  a.download=(invName||key).replace(/\//g,'-')+'.pdf';
   a.click();
 }
 function viewRowPdf(key){
-  const data=_pdfStore()[key];
-  if(!data){
-    // No PDF attached — let user pick a file to attach
-    const inp=document.createElement('input');inp.type='file';inp.accept='application/pdf';
-    inp.onchange=e=>{
-      const f=e.target.files[0];if(!f)return;
-      _savePdfToStore(key,f);
-      // Refresh whichever table is visible
-      if(key.startsWith('sal_'))renderSales();
-      else if(key.startsWith('pur_'))renderPurchase();
-    };
-    inp.click();
-    return;
-  }
-  const win=window.open('','_blank');
-  const isImg=/^data:image\//i.test(data);
-  if(win)win.document.write('<!DOCTYPE html><html><head><title>Bill</title></head><body style="margin:0;background:#222;display:flex;align-items:center;justify-content:center;min-height:100vh">'+(isImg?'<img src="'+data+'" style="max-width:100%;max-height:100vh;object-fit:contain">':'<iframe src="'+data+'" style="width:100%;height:100vh;border:none"></iframe>')+'</body></html>');
+  const url=_pdfUrlStore()[key];
+  if(url){window.open(url,'_blank');return;}
 }
 function openPdfViewer(){
   if(IMP._pdfBlob){const u=URL.createObjectURL(IMP._pdfBlob);window.open(u,'_blank');}
@@ -4314,7 +4304,7 @@ function confirmPdfImport(){
   // Attach PDF to this row
   if(IMP._pdfBlob){
     const pdfKey=(IMP.section==='sales'?'sal_':'pur_')+(obj.bill||obj.inv||obj.sup||Date.now());
-    _savePdfToStore(pdfKey,IMP._pdfBlob);
+    _savePdfToStorage(pdfKey,IMP._pdfBlob);
   }
   const msg=IMP._wasUpdate?'✅ Bill updated successfully (existing entry replaced)!':'✅ 1 '+sch.label+' imported successfully!';
   document.getElementById('impOk').textContent=msg;
@@ -4476,18 +4466,14 @@ function confirmBulkImport(){
     const obj={...r.parsed};
     pf.forEach(f=>{const el=document.getElementById('brf_'+i+'_'+f.k);if(el)obj[f.k]=el.value.trim();});
     impSaveRow(obj);
-    // Attach the bill PDF to this row so the 📄 icon lights up immediately
+    // Attach the bill PDF to this row → upload to Supabase Storage
     const _pdfKey=(IMP.section==='sales'?'sal_':'pur_')+(obj.bill||obj.inv||obj.sup||Date.now());
     if(r.pageDataUrl){
-      // Path B: single-page PDF extracted from multi-page bulk PDF
-      const _store=_pdfStore();
-      _store[_pdfKey]=r.pageDataUrl;
-      const _keys=Object.keys(_store);
-      if(_keys.length>30)delete _store[_keys[0]];
-      try{localStorage.setItem(PDF_KEY,JSON.stringify(_store));}catch(e){}
+      // Path B: convert data URL → Blob, upload single-page PDF to Supabase
+      _savePdfToStorage(_pdfKey,_dataUrlToBlob(r.pageDataUrl));
     }else if(r.fileObj){
-      // Path A: individual PDF file — use existing helper
-      _savePdfToStore(_pdfKey,r.fileObj);
+      // Path A: individual PDF file
+      _savePdfToStorage(_pdfKey,r.fileObj);
     }
     count++;
   });
