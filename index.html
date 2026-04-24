@@ -4457,26 +4457,30 @@ async function extractPdfText(file){
   return txt;
 }
 
-function confirmBulkImport(){
+async function confirmBulkImport(){
   const sch=IMP_SCHEMAS[IMP.section];
   const pf=sch.fields.filter(f=>f.req||['party','sup','date','bill','inv','name'].includes(f.k));
   let count=0;
+  const uploadJobs=[];
   BULK_RESULTS.forEach((r,i)=>{
     if(document.getElementById('brskip_'+i)?.checked)return;
     const obj={...r.parsed};
     pf.forEach(f=>{const el=document.getElementById('brf_'+i+'_'+f.k);if(el)obj[f.k]=el.value.trim();});
     impSaveRow(obj);
-    // Attach the bill PDF to this row → upload to Supabase Storage
+    // Attach the bill PDF → upload to Supabase Storage (collected for await below)
     const _pdfKey=(IMP.section==='sales'?'sal_':'pur_')+(obj.bill||obj.inv||obj.sup||Date.now());
     if(r.pageDataUrl){
-      // Path B: convert data URL → Blob, upload single-page PDF to Supabase
-      _savePdfToStorage(_pdfKey,_dataUrlToBlob(r.pageDataUrl));
+      uploadJobs.push(_savePdfToStorage(_pdfKey,_dataUrlToBlob(r.pageDataUrl)));
     }else if(r.fileObj){
-      // Path A: individual PDF file
-      _savePdfToStorage(_pdfKey,r.fileObj);
+      uploadJobs.push(_savePdfToStorage(_pdfKey,r.fileObj));
     }
     count++;
   });
+  // Wait for ALL uploads to finish before rendering so icons appear immediately
+  if(uploadJobs.length){
+    document.getElementById('bulkTitle').textContent='⏳ Uploading '+uploadJobs.length+' bills…';
+    await Promise.allSettled(uploadJobs);
+  }
   window[sch.renderFn]();
   document.getElementById('bulkTitle').textContent='✅ '+count+' entries imported!';
   document.getElementById('bulkReviewWrap').style.display='none';
