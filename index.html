@@ -2345,14 +2345,17 @@ const totP=()=>PURCHASES.reduce((a,x)=>{const c=cP(x);return{tx:a.tx+x.taxable,g
 const totL=()=>WORKERS.reduce((a,w)=>{const c=cW(w);return{gross:a.gross+c.gross,net:a.net+c.net,cost:a.cost+c.cost};},{gross:0,net:0,cost:0});
 function getPL(){
   const ts=totS(),tp=totP(),tl=totL();
+  const _knownCats=['Limestone','Petcoke','Royalty','Transport','Office'];
   const rev=ts.tx,rawMat=PURCHASES.filter(p=>p.cat==='Limestone').reduce((s,p)=>s+p.taxable,0);
   const fuel=PURCHASES.filter(p=>p.cat==='Petcoke').reduce((s,p)=>s+p.taxable,0);
   const royalty=PURCHASES.filter(p=>p.cat==='Royalty').reduce((s,p)=>s+p.taxable,0);
   const trans=PURCHASES.filter(p=>p.cat==='Transport').reduce((s,p)=>s+p.taxable,0);
   const office=PURCHASES.filter(p=>p.cat==='Office').reduce((s,p)=>s+p.taxable,0);
-  const labour=tl.cost,cogs=rawMat+fuel+royalty+trans,gp=rev-cogs,opex=labour+office,ebitda=gp-opex;
+  // All other purchase categories (Bags, Equipment, Advance, etc.) — must not be ignored
+  const otherExp=PURCHASES.filter(p=>!_knownCats.includes(p.cat)).reduce((s,p)=>s+p.taxable,0);
+  const labour=tl.cost,cogs=rawMat+fuel+royalty+trans,gp=rev-cogs,opex=labour+office+otherExp,ebitda=gp-opex;
   const outGST=ts.cgst+ts.sgst,netGST=Math.max(0,outGST-tp.itc),np=ebitda-netGST;
-  return{rev,rawMat,fuel,royalty,trans,office,labour,cogs,gp,opex,ebitda,netGST,np,outGST,itc:tp.itc,gpm:rev?gp/rev*100:0,npm:rev?np/rev*100:0};
+  return{rev,rawMat,fuel,royalty,trans,office,otherExp,labour,cogs,gp,opex,ebitda,netGST,np,outGST,itc:tp.itc,gpm:rev?gp/rev*100:0,npm:rev?np/rev*100:0};
 }
 
 // ══ CHARTS ══
@@ -2456,14 +2459,16 @@ function renderDash(){
   const tQty=dS.reduce((s,x)=>s+x.qty,0);
   // Compute P&L from filtered data
   const rev=ts.tx;
+  const _knownCats=['Limestone','Petcoke','Royalty','Transport','Office'];
   const rawMat=dP.filter(p=>p.cat==='Limestone').reduce((s,p)=>s+p.taxable,0);
   const fuel=dP.filter(p=>p.cat==='Petcoke').reduce((s,p)=>s+p.taxable,0);
   const royalty=dP.filter(p=>p.cat==='Royalty').reduce((s,p)=>s+p.taxable,0);
   const trans=dP.filter(p=>p.cat==='Transport').reduce((s,p)=>s+p.taxable,0);
   const office=dP.filter(p=>p.cat==='Office').reduce((s,p)=>s+p.taxable,0);
-  const labour=tl.cost,cogs=rawMat+fuel+royalty+trans,gp=rev-cogs,opex=labour+office,ebitda=gp-opex;
+  const otherExp=dP.filter(p=>!_knownCats.includes(p.cat)).reduce((s,p)=>s+p.taxable,0);
+  const labour=tl.cost,cogs=rawMat+fuel+royalty+trans,gp=rev-cogs,opex=labour+office+otherExp,ebitda=gp-opex;
   const outGST=ts.cgst+ts.sgst,netGST=Math.max(0,outGST-tp.itc),np=ebitda-netGST;
-  const pl={rev,rawMat,fuel,royalty,trans,office,labour,cogs,gp,opex,ebitda,netGST,np,outGST,itc:tp.itc,gpm:rev?gp/rev*100:0,npm:rev?np/rev*100:0};
+  const pl={rev,rawMat,fuel,royalty,trans,office,otherExp,labour,cogs,gp,opex,ebitda,netGST,np,outGST,itc:tp.itc,gpm:rev?gp/rev*100:0,npm:rev?np/rev*100:0};
 
   const _svg={
     sales:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12M6 8h12M15 21L6 8"/><path d="M6 13h3a4 4 0 0 0 0-8"/></svg>`,
@@ -3185,6 +3190,7 @@ function renderPL(){
     ['h','OPERATING EXPENSES'],
     ['i','Daily Labour',pl.labour],
     ['i','Office & Admin',pl.office],
+    ...(pl.otherExp>0?[['i','Other Expenses (Bags, Equipment, etc.)',pl.otherExp]]:[]),
     ['t','Total OpEx',pl.opex],
     ['t','EBITDA',pl.ebitda],
     ['h','TAXES'],
