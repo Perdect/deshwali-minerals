@@ -1049,26 +1049,32 @@ table.att{width:100%;border-collapse:collapse;font-size:10px;min-width:960px}
     <div class="kpi"><div class="kpi-ic">🏛</div><div class="kpi-label">GST Payable</div><div class="kpi-val" style="color:var(--red)">₹0</div><div class="kpi-footer"><span>After ITC</span><span class="kpi-badge kb-a">Due 20 Apr</span></div></div></div>
 
   <div class="db-recent-wrap">
-    <!-- Recent Sales -->
+    <!-- Pending Sales Collections -->
     <div class="card">
       <div class="card-head">
-        <span class="card-title" style="display:inline-flex;align-items:center;gap:8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5655D7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12M6 8h12M15 21L6 8"/><path d="M6 13h3a4 4 0 0 0 0-8"/></svg>Recent Sales</span>
-        <button class="btn btn-ghost" style="padding:5px 14px;font-size:12px" onclick="goTo('sales',document.getElementById('si-sales'))" data-i18n="btn_view_all">View All →</button>
+        <span class="card-title" style="display:inline-flex;align-items:center;gap:8px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Pending Collections
+        </span>
+        <button class="btn btn-ghost" style="padding:5px 14px;font-size:12px" onclick="setSaleFilter('pending');goTo('sales',document.getElementById('si-sales'))">View All →</button>
       </div>
       <div class="card-body-np tbl-wrap"><table class="t" id="db-sales-table">
-        <thead><tr><th>Inv</th><th>Date</th><th>Party</th><th>Qty</th><th class="tr">Total</th></tr></thead>
-        <tbody><tr><td colspan="5" style="text-align:center;color:var(--ink4);padding:20px">No sales yet</td></tr></tbody>
+        <thead><tr><th>Party</th><th>Bills</th><th>Since</th><th class="tr">Amount Due</th></tr></thead>
+        <tbody><tr><td colspan="4" style="text-align:center;color:var(--ink4);padding:20px">No pending collections</td></tr></tbody>
       </table></div>
     </div>
-    <!-- Recent Purchases -->
+    <!-- Pending Purchase Payments -->
     <div class="card">
       <div class="card-head">
-        <span class="card-title" style="display:inline-flex;align-items:center;gap:8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>Recent Purchases</span>
-        <button class="btn btn-ghost" style="padding:5px 14px;font-size:12px" onclick="goTo('purchase',document.getElementById('si-purchase'))" data-i18n="btn_view_all">View All →</button>
+        <span class="card-title" style="display:inline-flex;align-items:center;gap:8px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+          Pending Payments
+        </span>
+        <button class="btn btn-ghost" style="padding:5px 14px;font-size:12px" onclick="setPurFilter('pending');goTo('purchase',document.getElementById('si-purchase'))">View All →</button>
       </div>
       <div class="card-body-np tbl-wrap"><table class="t" id="db-pur-table">
-        <thead><tr><th>Bill</th><th>Date</th><th>Supplier</th><th>Cat</th><th class="tr">Total</th></tr></thead>
-        <tbody><tr><td colspan="5" style="text-align:center;color:var(--ink4);padding:20px">No purchases yet</td></tr></tbody>
+        <thead><tr><th>Supplier</th><th>Bills</th><th>Since</th><th class="tr">Amount Due</th></tr></thead>
+        <tbody><tr><td colspan="4" style="text-align:center;color:var(--ink4);padding:20px">No pending payments</td></tr></tbody>
       </table></div>
     </div>
   </div>
@@ -1158,6 +1164,7 @@ table.att{width:100%;border-collapse:collapse;font-size:10px;min-width:960px}
     <button onclick="goTo('purchase',this)" style="flex:1;padding:9px 0;border-radius:9px;background:transparent;color:#6b7280;font-weight:600;border:none;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>Purchase</button>
   </div>
   <div class="kpi-row" id="sales-kpi"></div>
+  <div id="sales-pending-card" style="margin-bottom:16px"></div>
   <div class="card"><div class="card-head"><span class="card-title" data-i18n="card_inv_reg">Invoice Register</span></div><div class="card-body-np tbl-wrap"><div id="salesTable"></div></div></div>
 </div>
 
@@ -1177,6 +1184,7 @@ table.att{width:100%;border-collapse:collapse;font-size:10px;min-width:960px}
     <button style="flex:1;padding:9px 0;border-radius:9px;background:var(--p2);color:#fff;font-weight:700;border:none;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>Purchase</button>
   </div>
   <div class="kpi-row" id="pur-kpi"></div>
+  <div id="pur-pending-card" style="margin-bottom:16px"></div>
   <div class="card"><div class="card-head"><span class="card-title" data-i18n="card_pur_bills">Purchase Bills</span></div><div class="card-body-np tbl-wrap"><div id="purTable"></div></div></div>
 </div>
 
@@ -2521,43 +2529,49 @@ function renderDash(){
     _dbAlerts.innerHTML=alerts.join('');
   }
 
-  // Recent Sales (last 5)
-  const _stColors={paid:'#16a34a',pending:'#ea580c',cash:'#5655D7',partial:'#d97706',overdue:'#ef4444'};
-  const _stBg={paid:'#f0fdf4',pending:'#fff7ed',cash:'#f5f5ff',partial:'#fffbeb',overdue:'#fff1f2'};
-  const _stLabels={paid:'Paid',pending:'Pending',cash:'Cash',partial:'Partial',overdue:'Overdue'};
-  const _stDefault={color:'#6b7280',bg:'#f3f4f6',label:'Unknown'};
-  const salesRows=dS.length===0
-    ?`<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:24px">${t('lbl_no_sales')}</td></tr>`
-    :[...dS].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5).map(s=>{
-      const c=cS(s);const _st=s.status||'pending';
-      return`<tr>
-        <td><span style="font-weight:700;color:#374151;background:#f3f4f6;padding:3px 9px;border-radius:6px;font-size:12px">${s.inv}</span></td>
-        <td style="color:#6b7280">${fDS(s.date)}</td>
-        <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis">${cleanName(s.party)}</td>
-        <td style="color:#6b7280">${s.qty} T</td>
-        <td class="tr" style="font-weight:700;color:#16a34a">${fC(c.tot)}</td>
-        <td><span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;background:${_stBg[_st]||_stDefault.bg};color:${_stColors[_st]||_stDefault.color}"><span style="width:5px;height:5px;border-radius:50%;background:${_stColors[_st]||_stDefault.color};display:inline-block"></span>${_stLabels[_st]||_st}</span></td>
-      </tr>`;
-    }).join('');
+  // ── Pending Collections — group by party ──
+  const _pendSales=SALES.filter(s=>(s.status||'pending')==='pending');
+  const _sPartyMap={};
+  _pendSales.forEach(s=>{
+    const k=s.party||'Unknown';
+    if(!_sPartyMap[k])_sPartyMap[k]={party:k,amt:0,count:0,oldest:s.date||''};
+    _sPartyMap[k].amt+=cS(s).tot;
+    _sPartyMap[k].count++;
+    if(!_sPartyMap[k].oldest||(s.date||'')<_sPartyMap[k].oldest)_sPartyMap[k].oldest=s.date||'';
+  });
+  const _sParties=Object.values(_sPartyMap).sort((a,b)=>b.amt-a.amt);
+  const salesRows=_sParties.length===0
+    ?`<tr><td colspan="4" style="text-align:center;color:#9ca3af;padding:28px;font-size:13px">🎉 All collected! No pending payments.</td></tr>`
+    :_sParties.map(p=>`<tr>
+        <td style="font-weight:700;max-width:160px;overflow:hidden;text-overflow:ellipsis">${cleanName(p.party)}</td>
+        <td class="tc"><span style="background:#fff7ed;color:#ea580c;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px">${p.count} bill${p.count!==1?'s':''}</span></td>
+        <td style="color:#9ca3af;font-size:12px">${fDS(p.oldest)}</td>
+        <td class="tr" style="font-weight:800;color:#ea580c;font-size:14px">${fC(p.amt)}</td>
+      </tr>`).join('');
   const stEl=document.getElementById('db-sales-table');
-  if(stEl)stEl.innerHTML=`<thead><tr><th>${t('th_invno')}</th><th>${t('th_date')}</th><th>${t('th_party')}</th><th>${t('th_qty')}</th><th class="tr">${t('th_total')}</th><th>Status</th></tr></thead><tbody>${salesRows}</tbody>`;
+  if(stEl)stEl.innerHTML=`<thead><tr><th>Party</th><th class="tc">Bills</th><th>Oldest</th><th class="tr">Amount Due</th></tr></thead><tbody>${salesRows}</tbody>${_sParties.length?`<tfoot><tr><td colspan="2" style="font-weight:700">Total Pending</td><td></td><td class="tr" style="font-weight:800;color:#ea580c">${fC(_sParties.reduce((a,p)=>a+p.amt,0))}</td></tr></tfoot>`:''}`;
 
-  // Recent Purchases (last 5)
-  const purRows=dP.length===0
-    ?`<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:24px">${t('lbl_no_purchases')}</td></tr>`
-    :[...dP].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5).map(p=>{
-      const c=cP(p);const _pst=p.status||'pending';
-      return`<tr>
-        <td><span style="font-weight:700;color:#374151;background:#f3f4f6;padding:3px 9px;border-radius:6px;font-size:12px">${p.bill}</span></td>
-        <td style="color:#6b7280">${fDS(p.date)}</td>
-        <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis">${cleanName(p.sup)}</td>
-        <td style="color:#6b7280">${p.cat}</td>
-        <td class="tr" style="font-weight:700;color:#16a34a">${fC(c.tot)}</td>
-        <td><span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;background:${_stBg[_pst]||_stDefault.bg};color:${_stColors[_pst]||_stDefault.color}"><span style="width:5px;height:5px;border-radius:50%;background:${_stColors[_pst]||_stDefault.color};display:inline-block"></span>${_stLabels[_pst]||_pst}</span></td>
-      </tr>`;
-    }).join('');
+  // ── Pending Payments — group by supplier ──
+  const _pendPur=PURCHASES.filter(p=>(p.status||'pending')==='pending');
+  const _pSupMap={};
+  _pendPur.forEach(p=>{
+    const k=p.sup||'Unknown';
+    if(!_pSupMap[k])_pSupMap[k]={sup:k,amt:0,count:0,oldest:p.date||''};
+    _pSupMap[k].amt+=cP(p).tot;
+    _pSupMap[k].count++;
+    if(!_pSupMap[k].oldest||(p.date||'')<_pSupMap[k].oldest)_pSupMap[k].oldest=p.date||'';
+  });
+  const _pSuppliers=Object.values(_pSupMap).sort((a,b)=>b.amt-a.amt);
+  const purRows=_pSuppliers.length===0
+    ?`<tr><td colspan="4" style="text-align:center;color:#9ca3af;padding:28px;font-size:13px">✅ All clear! No pending purchase payments.</td></tr>`
+    :_pSuppliers.map(p=>`<tr>
+        <td style="font-weight:700;max-width:160px;overflow:hidden;text-overflow:ellipsis">${cleanName(p.sup)}</td>
+        <td class="tc"><span style="background:#fff1f2;color:#dc2626;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px">${p.count} bill${p.count!==1?'s':''}</span></td>
+        <td style="color:#9ca3af;font-size:12px">${fDS(p.oldest)}</td>
+        <td class="tr" style="font-weight:800;color:#dc2626;font-size:14px">${fC(p.amt)}</td>
+      </tr>`).join('');
   const ptEl=document.getElementById('db-pur-table');
-  if(ptEl)ptEl.innerHTML=`<thead><tr><th>${t('th_billno')}</th><th>${t('th_date')}</th><th>${t('th_supplier')}</th><th>Product</th><th class="tr">${t('th_total')}</th><th>Status</th></tr></thead><tbody>${purRows}</tbody>`;
+  if(ptEl)ptEl.innerHTML=`<thead><tr><th>Supplier</th><th class="tc">Bills</th><th>Oldest</th><th class="tr">Amount Due</th></tr></thead><tbody>${purRows}</tbody>${_pSuppliers.length?`<tfoot><tr><td colspan="2" style="font-weight:700">Total Payable</td><td></td><td class="tr" style="font-weight:800;color:#dc2626">${fC(_pSuppliers.reduce((a,p)=>a+p.amt,0))}</td></tr></tfoot>`:''}`;
 }
 
 // ══ INVOICE ══
@@ -2656,6 +2670,49 @@ function _monSummary(arr,valFn,section){
   if(!months.length)return'';
   const rows=months.map(m=>{const items=arr.filter(x=>(x.date||'').startsWith(m));const tot=items.reduce((a,x)=>a+valFn(x),0);const cnt=items.length;return`<tr><td style="font-weight:600;color:var(--p2)">${_monLabel(m)}</td><td class="tr">${cnt}</td><td class="tr" style="font-weight:700">${fC(tot)}</td></tr>`;}).join('');
   return`<div style="margin-top:20px"><div style="font-weight:700;font-size:13px;color:var(--ink2);margin-bottom:8px">📅 Monthly Summary</div><div style="overflow-x:auto"><table class="t" style="font-size:12px"><thead><tr><th>Month</th><th class="tr">Bills</th><th class="tr">Taxable</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;}
+function _renderPendingByParty(containerId,entries,keyFn,amtFn,dateFn,label,color,bg,btnLabel,btnFn){
+  const el=document.getElementById(containerId);if(!el)return;
+  const pending=entries.filter(e=>(e.status||'pending')==='pending');
+  if(!pending.length){el.innerHTML='';return;}
+  // Group by party/supplier
+  const map={};
+  pending.forEach(e=>{
+    const k=keyFn(e)||'Unknown';
+    if(!map[k])map[k]={key:k,amt:0,count:0,oldest:dateFn(e)||'',invoices:[]};
+    map[k].amt+=amtFn(e);
+    map[k].count++;
+    map[k].invoices.push(e);
+    if(dateFn(e)&&(!map[k].oldest||dateFn(e)<map[k].oldest))map[k].oldest=dateFn(e);
+  });
+  const rows=Object.values(map).sort((a,b)=>b.amt-a.amt);
+  const totalAmt=rows.reduce((s,r)=>s+r.amt,0);
+  const rowsHtml=rows.map(r=>`<tr>
+    <td style="font-weight:700">${cleanName(r.key)}</td>
+    <td class="tc"><span style="background:${bg};color:${color};font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px">${r.count} bill${r.count!==1?'s':''}</span></td>
+    <td style="color:#9ca3af;font-size:12px">${fDS(r.oldest)}</td>
+    <td class="tr" style="font-weight:800;color:${color}">${fC(r.amt)}</td>
+  </tr>`).join('');
+  el.innerHTML=`<div class="card" style="border:2px solid ${color}22;background:#fff">
+    <div class="card-head" style="background:${bg};border-bottom:1px solid ${color}22">
+      <span class="card-title" style="color:${color};display:inline-flex;align-items:center;gap:8px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Pending ${label} · <strong>${rows.length} ${rows.length===1?'party':'parties'}</strong> · <span style="font-size:14px">${fC(totalAmt)}</span>
+      </span>
+      <button class="btn btn-ghost" style="padding:5px 14px;font-size:12px;border-color:${color}44;color:${color}" onclick="${btnFn}">${btnLabel}</button>
+    </div>
+    <div class="card-body-np tbl-wrap">
+      <table class="t" style="width:100%">
+        <thead><tr><th>${label==='Collections'?'Customer':'Supplier'}</th><th class="tc">Bills</th><th>Oldest Bill</th><th class="tr">Amount Due</th></tr></thead>
+        <tbody>${rowsHtml}</tbody>
+        <tfoot><tr>
+          <td colspan="2" style="font-weight:700;color:${color}">Total</td>
+          <td></td>
+          <td class="tr" style="font-weight:800;color:${color}">${fC(totalAmt)}</td>
+        </tr></tfoot>
+      </table>
+    </div>
+  </div>`;
+}
 function renderSales(){
   const filt=MFLT.sales;
   const src=filt?SALES.filter(s=>(s.date||'').startsWith(filt)):SALES;
@@ -2748,6 +2805,8 @@ function renderSales(){
   </tr></tfoot></table>`;
   // Restore selected month in dropdown
   const sel=document.querySelector('#salesTable select');if(sel&&filt)sel.value=filt;
+  // Pending collections card
+  _renderPendingByParty('sales-pending-card',SALES,s=>s.party,s=>cS(s).tot,s=>s.date,'Collections','#ea580c','#fff7ed',"setSaleFilter('pending')",'Filter Pending →');
 }
 
 // ══ PURCHASE ══
@@ -2837,6 +2896,8 @@ function renderPurchase(){
     <th class="tc">Status</th>
   </tr></thead><tbody>${bodyHtml}</tbody><tfoot><tr><td></td><td colspan="4">${t('gt_label')} (${filteredPurIdx.length})</td><td class="tr">${fC(tT+tG)}</td><td colspan="2"></td></tr></tfoot></table>`;
   const sel2=document.querySelector('#purTable select');if(sel2&&filt)sel2.value=filt;
+  // Pending payments card
+  _renderPendingByParty('pur-pending-card',PURCHASES,p=>p.sup,p=>cP(p).tot,p=>p.date,'Payments','#dc2626','#fff1f2',"setPurFilter('pending')",'Filter Pending →');
 }
 
 // ══ MONTHLY REGISTER ══
