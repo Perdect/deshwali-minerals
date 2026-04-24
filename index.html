@@ -3924,11 +3924,18 @@ async function processPdfMultiPage(pdf,fileName){
   listEl.innerHTML=Array.from({length:n},(_,i)=>`<div class="bulk-file-row"><div class="bulk-file-name">📄 Page ${i+1} / Bill ${i+1}</div><span class="bulk-status bs-wait" id="bs_${i}">Waiting</span></div>`).join('');
   // Ensure pdf-lib is loaded (dynamic load as fallback)
   const _pdfLibReady=await _ensurePdfLib();
+  if(!_pdfLibReady)showToast('⚠ pdf-lib failed to load — pages cannot be split','error');
   // Load source PDF doc for page splitting
   let _srcPdfDoc=null;
   if(_pdfLibReady&&IMP._pdfBlob){
-    try{const _rb=await IMP._pdfBlob.arrayBuffer();_srcPdfDoc=await PDFLib.PDFDocument.load(_rb);}
-    catch(e){console.warn('[pdf-lib load]',e);}
+    try{
+      const _rb=await IMP._pdfBlob.arrayBuffer();
+      _srcPdfDoc=await PDFLib.PDFDocument.load(_rb,{ignoreEncryption:true});
+      showToast('pdf-lib loaded ✓ — splitting '+n+' pages','success');
+    }catch(e){
+      showToast('⚠ pdf-lib error: '+e.message,'error');
+      console.warn('[pdf-lib load]',e);
+    }
   }
   for(let i=0;i<n;i++){
     const bsEl=document.getElementById('bs_'+i);
@@ -3947,7 +3954,10 @@ async function processPdfMultiPage(pdf,fileName){
           _sd.addPage(_cp);
           const _b=await _sd.save();
           pageBlob=new Blob([_b],{type:'application/pdf'});
-        }catch(e){console.warn('[Page extract pg'+(i+1)+']',e);}
+        }catch(e){
+          showToast('⚠ Page '+(i+1)+' split error: '+e.message,'error');
+          console.warn('[Page extract pg'+(i+1)+']',e);
+        }
       }
       BULK_RESULTS.push({file:'Page '+(i+1),parsed,ok:true,pageBlob});
       if(bsEl){bsEl.textContent='✓ Done';bsEl.className='bulk-status bs-ok';}
