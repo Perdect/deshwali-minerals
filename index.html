@@ -3900,6 +3900,17 @@ function _pdfItemsToText(items){
   return out+'\n';
 }
 
+// Guarantee pdf-lib is loaded — static script tag may not have fired yet
+function _ensurePdfLib(){
+  if(typeof PDFLib!=='undefined')return Promise.resolve(true);
+  return new Promise(resolve=>{
+    const s=document.createElement('script');
+    s.src='https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+    s.onload=()=>resolve(true);
+    s.onerror=()=>{console.warn('[pdf-lib] failed to load from unpkg');resolve(false);};
+    document.head.appendChild(s);
+  });
+}
 async function processPdfMultiPage(pdf,fileName){
   // Each page = one invoice
   BULK_RESULTS=[];
@@ -3911,16 +3922,13 @@ async function processPdfMultiPage(pdf,fileName){
   document.getElementById('bulkImportBtn').style.display='none';
   const listEl=document.getElementById('bulkList');
   listEl.innerHTML=Array.from({length:n},(_,i)=>`<div class="bulk-file-row"><div class="bulk-file-name">📄 Page ${i+1} / Bill ${i+1}</div><span class="bulk-status bs-wait" id="bs_${i}">Waiting</span></div>`).join('');
-  // Upload the original PDF to Supabase once — all rows from this PDF share the same URL
-  let _bulkPdfUrl=null;
-  if(DB&&IMP._pdfBlob){
-    try{
-      const _ts=Date.now();
-      const _path=`${ACTIVE_CO||'dm'}/bulk_${_ts}.pdf`;
-      const{error:_ue}=await DB.storage.from(PDF_BUCKET).upload(_path,IMP._pdfBlob,{contentType:'application/pdf',upsert:true});
-      if(!_ue){const{data:_ud}=DB.storage.from(PDF_BUCKET).getPublicUrl(_path);_bulkPdfUrl=_ud.publicUrl;}
-      else{console.warn('[Bulk PDF upload]',_ue.message);}
-    }catch(e){console.warn('[Bulk PDF upload exception]',e);}
+  // Ensure pdf-lib is loaded (dynamic load as fallback)
+  const _pdfLibReady=await _ensurePdfLib();
+  // Load source PDF doc for page splitting
+  let _srcPdfDoc=null;
+  if(_pdfLibReady&&IMP._pdfBlob){
+    try{const _rb=await IMP._pdfBlob.arrayBuffer();_srcPdfDoc=await PDFLib.PDFDocument.load(_rb);}
+    catch(e){console.warn('[pdf-lib load]',e);}
   }
   for(let i=0;i<n;i++){
     const bsEl=document.getElementById('bs_'+i);
@@ -3930,11 +3938,21 @@ async function processPdfMultiPage(pdf,fileName){
       const tc=await pg.getTextContent();
       const txt=_pdfItemsToText(tc.items);
       const parsed=parsePdfFields(txt,IMP.section);
-      // Each row gets the shared PDF URL (page number stored for reference)
-      BULK_RESULTS.push({file:'Page '+(i+1),parsed,ok:true,pdfUrl:_bulkPdfUrl,pageNum:i+1});
+      // Extract this page as a standalone single-page PDF blob
+      let pageBlob=null;
+      if(_srcPdfDoc){
+        try{
+          const _sd=await PDFLib.PDFDocument.create();
+          const[_cp]=await _sd.copyPages(_srcPdfDoc,[i]);
+          _sd.addPage(_cp);
+          const _b=await _sd.save();
+          pageBlob=new Blob([_b],{type:'application/pdf'});
+        }catch(e){console.warn('[Page extract pg'+(i+1)+']',e);}
+      }
+      BULK_RESULTS.push({file:'Page '+(i+1),parsed,ok:true,pageBlob});
       if(bsEl){bsEl.textContent='✓ Done';bsEl.className='bulk-status bs-ok';}
     }catch(err){
-      BULK_RESULTS.push({file:'Page '+(i+1),parsed:{},ok:false,pdfUrl:null,pageNum:i+1});
+      BULK_RESULTS.push({file:'Page '+(i+1),parsed:{},ok:false,pageBlob:null});
       if(bsEl){bsEl.textContent='Error';bsEl.className='bulk-status bs-err';}
     }
   }
@@ -4464,12 +4482,11 @@ async function confirmBulkImport(){
     impSaveRow(obj);
     // Attach the bill PDF URL to this row
     const _pdfKey=(IMP.section==='sales'?'sal_':'pur_')+(obj.bill||obj.inv||obj.sup||Date.now());
-    if(r.pdfUrl){
-      // Path B: multi-page PDF already uploaded — just save URL to cache
-      const _store=_pdfUrlStore();_store[_pdfKey]=r.pdfUrl;
-      localStorage.setItem(PDF_URL_KEY,JSON.stringify(_store));
+    if(r.pageBlob){
+      // Path B: single-page PDF blob extracted from multi-page PDF
+      uploadJobs.push(_savePdfToStorage(_pdfKey,r.pageBlob));
     }else if(r.fileObj){
-      // Path A: individual PDF file — upload now
+      // Path A: individual PDF file
       uploadJobs.push(_savePdfToStorage(_pdfKey,r.fileObj));
     }
     count++;
