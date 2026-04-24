@@ -3911,10 +3911,16 @@ async function processPdfMultiPage(pdf,fileName){
   document.getElementById('bulkImportBtn').style.display='none';
   const listEl=document.getElementById('bulkList');
   listEl.innerHTML=Array.from({length:n},(_,i)=>`<div class="bulk-file-row"><div class="bulk-file-name">📄 Page ${i+1} / Bill ${i+1}</div><span class="bulk-status bs-wait" id="bs_${i}">Waiting</span></div>`).join('');
-  // Load the source PDF once with pdf-lib so we can copy individual pages
-  let _srcPdfDoc=null;
-  if(typeof PDFLib!=='undefined'&&IMP._pdfBlob){
-    try{const _rawBuf=await IMP._pdfBlob.arrayBuffer();_srcPdfDoc=await PDFLib.PDFDocument.load(_rawBuf);}catch(e){_srcPdfDoc=null;}
+  // Upload the original PDF to Supabase once — all rows from this PDF share the same URL
+  let _bulkPdfUrl=null;
+  if(DB&&IMP._pdfBlob){
+    try{
+      const _ts=Date.now();
+      const _path=`${ACTIVE_CO||'dm'}/bulk_${_ts}.pdf`;
+      const{error:_ue}=await DB.storage.from(PDF_BUCKET).upload(_path,IMP._pdfBlob,{contentType:'application/pdf',upsert:true});
+      if(!_ue){const{data:_ud}=DB.storage.from(PDF_BUCKET).getPublicUrl(_path);_bulkPdfUrl=_ud.publicUrl;}
+      else{console.warn('[Bulk PDF upload]',_ue.message);}
+    }catch(e){console.warn('[Bulk PDF upload exception]',e);}
   }
   for(let i=0;i<n;i++){
     const bsEl=document.getElementById('bs_'+i);
@@ -3924,22 +3930,11 @@ async function processPdfMultiPage(pdf,fileName){
       const tc=await pg.getTextContent();
       const txt=_pdfItemsToText(tc.items);
       const parsed=parsePdfFields(txt,IMP.section);
-      // Extract this page as a standalone single-page PDF data URL
-      let pageDataUrl=null;
-      if(_srcPdfDoc){
-        try{
-          const _singleDoc=await PDFLib.PDFDocument.create();
-          const [_copiedPg]=await _singleDoc.copyPages(_srcPdfDoc,[i]);
-          _singleDoc.addPage(_copiedPg);
-          const _bytes=await _singleDoc.save();
-          const _blob=new Blob([_bytes],{type:'application/pdf'});
-          pageDataUrl=await new Promise(res=>{const _r=new FileReader();_r.onload=e=>res(e.target.result);_r.readAsDataURL(_blob);});
-        }catch(e){pageDataUrl=null;}
-      }
-      BULK_RESULTS.push({file:'Page '+(i+1),parsed,ok:true,pageDataUrl});
+      // Each row gets the shared PDF URL (page number stored for reference)
+      BULK_RESULTS.push({file:'Page '+(i+1),parsed,ok:true,pdfUrl:_bulkPdfUrl,pageNum:i+1});
       if(bsEl){bsEl.textContent='✓ Done';bsEl.className='bulk-status bs-ok';}
     }catch(err){
-      BULK_RESULTS.push({file:'Page '+(i+1),parsed:{},ok:false,pageDataUrl:null});
+      BULK_RESULTS.push({file:'Page '+(i+1),parsed:{},ok:false,pdfUrl:null,pageNum:i+1});
       if(bsEl){bsEl.textContent='Error';bsEl.className='bulk-status bs-err';}
     }
   }
@@ -4467,11 +4462,14 @@ async function confirmBulkImport(){
     const obj={...r.parsed};
     pf.forEach(f=>{const el=document.getElementById('brf_'+i+'_'+f.k);if(el)obj[f.k]=el.value.trim();});
     impSaveRow(obj);
-    // Attach the bill PDF → upload to Supabase Storage (collected for await below)
+    // Attach the bill PDF URL to this row
     const _pdfKey=(IMP.section==='sales'?'sal_':'pur_')+(obj.bill||obj.inv||obj.sup||Date.now());
-    if(r.pageDataUrl){
-      uploadJobs.push(_savePdfToStorage(_pdfKey,_dataUrlToBlob(r.pageDataUrl)));
+    if(r.pdfUrl){
+      // Path B: multi-page PDF already uploaded — just save URL to cache
+      const _store=_pdfUrlStore();_store[_pdfKey]=r.pdfUrl;
+      localStorage.setItem(PDF_URL_KEY,JSON.stringify(_store));
     }else if(r.fileObj){
+      // Path A: individual PDF file — upload now
       uploadJobs.push(_savePdfToStorage(_pdfKey,r.fileObj));
     }
     count++;
